@@ -30,24 +30,31 @@ export default function KDSPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
 
-  async function loadOrders() {
-    const { data, error } = await supabase
-      .from('orders')
-      .select(`
-        *,
-        order_items (*)
-      `)
-      .neq('status', 'completed')
-      .order('created_at', { ascending: true });
+async function loadOrders() {
+  console.log("Loading orders...");
 
-    if (error) {
-      console.error(error);
-      return;
-    }
+  const { data, error } = await supabase
+    .from('orders')
+    .select(`
+      *,
+      order_items (*)
+    `)
+    .neq('status', 'completed')
+    .order('created_at', { ascending: true });
 
-    setOrders(data || []);
+
+  if (error) {
+    console.error("ORDER LOAD ERROR:", error);
     setLoading(false);
+    return;
   }
+
+
+  console.log("ORDERS RECEIVED:", data);
+
+  setOrders(data || []);
+  setLoading(false);
+}
 
 
   useEffect(() => {
