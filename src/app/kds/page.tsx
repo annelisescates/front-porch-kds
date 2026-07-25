@@ -3,10 +3,17 @@
 import { useEffect, useState } from 'react';
 import { createClient } from '@supabase/supabase-js';
 
-// Initialize Supabase Client
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
+// Safe Supabase Client Initialization
+const getSupabaseClient = () => {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+  if (!supabaseUrl || !supabaseAnonKey) {
+    console.warn('Supabase env vars missing in current context.');
+    return null;
+  }
+  return createClient(supabaseUrl, supabaseAnonKey);
+};
 
 // Type definition for an Order
 interface Order {
@@ -23,7 +30,13 @@ export default function KDSPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // 1. Fetch initial active orders (all active stages, excluding 'completed')
+    const supabase = getSupabaseClient();
+    if (!supabase) {
+      setLoading(false);
+      return;
+    }
+
+    // 1. Fetch initial active orders (excluding 'completed')
     const fetchOrders = async () => {
       const { data, error } = await supabase
         .from('orders')
@@ -41,7 +54,7 @@ export default function KDSPage() {
 
     fetchOrders();
 
-    // 2. Set up Realtime listener catching INSERTs and UPDATEs to 'orders'
+    // 2. Set up Realtime listener catching INSERTs and UPDATEs
     const channel = supabase
       .channel('kds_realtime_orders')
       .on(
@@ -52,8 +65,6 @@ export default function KDSPage() {
           table: 'orders',
         },
         (payload) => {
-          console.log('Realtime payload received:', payload);
-
           if (payload.eventType === 'INSERT') {
             const newOrder = payload.new as Order;
             if (newOrder.status !== 'completed') {
@@ -65,10 +76,8 @@ export default function KDSPage() {
           } else if (payload.eventType === 'UPDATE') {
             const updatedOrder = payload.new as Order;
             if (updatedOrder.status === 'completed') {
-              // Remove if completed by another device
               setOrders((prev) => prev.filter((o) => o.id !== updatedOrder.id));
             } else {
-              // Update status in local state
               setOrders((prev) =>
                 prev.map((o) => (o.id === updatedOrder.id ? updatedOrder : o))
               );
@@ -76,17 +85,17 @@ export default function KDSPage() {
           }
         }
       )
-      .subscribe((status) => {
-        console.log('Supabase Realtime Connection Status:', status);
-      });
+      .subscribe();
 
     return () => {
       supabase.removeChannel(channel);
     };
   }, []);
 
-  // Move order to the next stage in Supabase
+  // Move order to the next stage
   const updateOrderStatus = async (orderId: string | number, nextStatus: string) => {
+    const supabase = getSupabaseClient();
+    
     // Optimistic UI update
     setOrders((prev) =>
       prev.map((order) =>
@@ -94,34 +103,39 @@ export default function KDSPage() {
       )
     );
 
-    const { error } = await supabase
-      .from('orders')
-      .update({ status: nextStatus })
-      .eq('id', orderId);
+    if (supabase) {
+      const { error } = await supabase
+        .from('orders')
+        .update({ status: nextStatus })
+        .eq('id', orderId);
 
-    if (error) {
-      console.error('Failed to update status in Supabase:', error);
-      alert('Could not update order status on server. Please refresh.');
+      if (error) {
+        console.error('Failed to update status in Supabase:', error);
+        alert('Could not update order status on server. Please refresh.');
+      }
     }
   };
 
-  // Complete & Bump order off the screen
+  // Complete & Bump order off screen
   const bumpOrder = async (orderId: string | number) => {
+    const supabase = getSupabaseClient();
+
     // Optimistically remove from screen
     setOrders((prev) => prev.filter((order) => order.id !== orderId));
 
-    const { error } = await supabase
-      .from('orders')
-      .update({ status: 'completed' })
-      .eq('id', orderId);
+    if (supabase) {
+      const { error } = await supabase
+        .from('orders')
+        .update({ status: 'completed' })
+        .eq('id', orderId);
 
-    if (error) {
-      console.error('Failed to bump order in Supabase:', error);
-      alert('Could not bump order. Please refresh.');
+      if (error) {
+        console.error('Failed to bump order in Supabase:', error);
+        alert('Could not bump order. Please refresh.');
+      }
     }
   };
 
-  // Helper functions for stage columns
   const filterByStatus = (status: string) =>
     orders.filter((o) => (o.status || 'waiting').toLowerCase() === status);
 
