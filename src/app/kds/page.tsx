@@ -100,9 +100,11 @@ export default function KDSPage() {
     console.log("FULL ORDER FROM SUPABASE:", fullOrder);
 
   if (error) {
-    console.error("Could not fetch full new order:", error);
-    return;
-  }
+  console.error("Could not fetch full new order:", error);
+  return;
+}
+
+console.log("FULL ORDER FROM SUPABASE:", fullOrder);
 
   if (fullOrder.status !== 'completed') {
     setOrders((prev) => {
