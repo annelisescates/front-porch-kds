@@ -182,7 +182,7 @@ export default function Home() {
 
   return (
     <main className="min-h-screen bg-gray-100 p-6">
-      <div className="mx-auto max-w-3xl rounded-2xl bg-white p-8 shadow">
+      <div className="mx-auto max-w-3xl rounded-2xl bg-[#FFC5D3]/50 p-8 shadow">
         <h1 className="text-3xl font-bold">Front Porch Faith Apparel Co.</h1>
         <p className="mb-8 text-gray-600">Pop-Up Order System</p>
 
