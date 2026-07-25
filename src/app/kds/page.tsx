@@ -85,13 +85,31 @@ export default function KDSPage() {
           console.log('🔔 Realtime event payload received:', payload);
 
           if (payload.eventType === 'INSERT') {
-            const newOrder = payload.new as Order;
-            if (newOrder.status !== 'completed') {
-              setOrders((prev) => {
-                if (prev.some((order) => order.id === newOrder.id)) return prev;
-                return [...prev, newOrder];
-              });
-            }
+  const newOrderId = payload.new.id;
+
+  const { data: fullOrder, error } = await supabase
+    .from('orders')
+    .select(`
+      *,
+      order_items (*)
+    `)
+    .eq('id', newOrderId)
+    .single();
+
+  if (error) {
+    console.error("Could not fetch full new order:", error);
+    return;
+  }
+
+  if (fullOrder.status !== 'completed') {
+    setOrders((prev) => {
+      if (prev.some((order) => order.id === fullOrder.id)) {
+        return prev;
+      }
+
+      return [...prev, fullOrder];
+    });
+  }
           } else if (payload.eventType === 'UPDATE') {
             const updatedOrder = payload.new as Order;
             if (updatedOrder.status === 'completed') {
