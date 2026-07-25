@@ -15,7 +15,6 @@ const getSupabaseClient = () => {
   return createClient(supabaseUrl, supabaseAnonKey);
 };
 
-// Type definition for an Order
 interface Order {
   id: string | number;
   created_at: string;
@@ -36,7 +35,7 @@ export default function KDSPage() {
       return;
     }
 
-    // 1. Fetch initial active orders (excluding 'completed')
+    // 1. Fetch initial active orders
     const fetchOrders = async () => {
       const { data, error } = await supabase
         .from('orders')
@@ -54,7 +53,7 @@ export default function KDSPage() {
 
     fetchOrders();
 
-    // 2. Set up Realtime listener catching INSERTs and UPDATEs
+    // 2. Realtime subscription for INSERTs and UPDATEs
     const channel = supabase
       .channel('kds_realtime_orders')
       .on(
@@ -92,7 +91,6 @@ export default function KDSPage() {
     };
   }, []);
 
-  // Move order to the next stage
   const updateOrderStatus = async (orderId: string | number, nextStatus: string) => {
     const supabase = getSupabaseClient();
     
@@ -116,7 +114,6 @@ export default function KDSPage() {
     }
   };
 
-  // Complete & Bump order off screen
   const bumpOrder = async (orderId: string | number) => {
     const supabase = getSupabaseClient();
 
@@ -141,8 +138,8 @@ export default function KDSPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-900 text-white flex items-center justify-center text-xl font-medium">
-        Loading Kitchen Display System...
+      <div className="min-h-screen bg-white text-black flex items-center justify-center text-xl font-medium">
+        Loading Order Display System...
       </div>
     );
   }
@@ -152,8 +149,10 @@ export default function KDSPage() {
       key: 'waiting',
       title: 'Waiting',
       bgHeader: 'bg-red-600',
-      borderCard: 'border-red-500/50',
-      btnBg: 'bg-red-600 hover:bg-red-500',
+      bgColumn: 'bg-red-500/10',
+      borderColumn: 'border-red-200',
+      borderCard: 'border-red-300',
+      btnBg: 'bg-red-600 hover:bg-red-700',
       btnText: 'Move to Pressing →',
       nextStatus: 'pressing',
     },
@@ -161,8 +160,10 @@ export default function KDSPage() {
       key: 'pressing',
       title: 'Pressing',
       bgHeader: 'bg-amber-600',
-      borderCard: 'border-amber-500/50',
-      btnBg: 'bg-amber-600 hover:bg-amber-500',
+      bgColumn: 'bg-amber-500/10',
+      borderColumn: 'border-amber-200',
+      borderCard: 'border-amber-300',
+      btnBg: 'bg-amber-600 hover:bg-amber-700',
       btnText: 'Move to Packing →',
       nextStatus: 'packing',
     },
@@ -170,8 +171,10 @@ export default function KDSPage() {
       key: 'packing',
       title: 'Packing',
       bgHeader: 'bg-yellow-600',
-      borderCard: 'border-yellow-500/50',
-      btnBg: 'bg-yellow-600 hover:bg-yellow-500',
+      bgColumn: 'bg-yellow-500/10',
+      borderColumn: 'border-yellow-200',
+      borderCard: 'border-yellow-300',
+      btnBg: 'bg-yellow-600 hover:bg-yellow-700',
       btnText: 'Mark Ready →',
       nextStatus: 'ready',
     },
@@ -179,22 +182,24 @@ export default function KDSPage() {
       key: 'ready',
       title: 'Ready for Pickup',
       bgHeader: 'bg-emerald-600',
-      borderCard: 'border-emerald-500/50',
-      btnBg: 'bg-emerald-600 hover:bg-emerald-500',
+      bgColumn: 'bg-emerald-500/10',
+      borderColumn: 'border-emerald-200',
+      borderCard: 'border-emerald-300',
+      btnBg: 'bg-emerald-600 hover:bg-emerald-700',
       btnText: 'Bump / Complete ✓',
       nextStatus: 'completed',
     },
   ];
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 p-4 flex flex-col">
+    <div className="min-h-screen bg-white text-black p-4 flex flex-col">
       {/* Top Header */}
-      <div className="flex justify-between items-center mb-4 pb-3 border-b border-slate-800">
-        <h1 className="text-2xl md:text-3xl font-bold tracking-wide text-white">
-          Kitchen Display System
+      <div className="flex justify-between items-center mb-4 pb-3 border-b border-gray-200">
+        <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-black">
+          Front Porch Faith Apparel Co.
         </h1>
-        <div className="bg-slate-900 px-4 py-2 rounded-lg border border-slate-800 text-sm">
-          Active Orders: <span className="font-bold text-emerald-400">{orders.length}</span>
+        <div className="bg-gray-100 px-4 py-2 rounded-lg border border-gray-200 text-sm text-gray-800 font-medium">
+          Active Orders: <span className="font-bold text-emerald-600">{orders.length}</span>
         </div>
       </div>
 
@@ -206,35 +211,35 @@ export default function KDSPage() {
           return (
             <div
               key={col.key}
-              className="bg-slate-900 border border-slate-800 rounded-xl flex flex-col overflow-hidden"
+              className={`${col.bgColumn} border ${col.borderColumn} rounded-xl flex flex-col overflow-hidden shadow-sm`}
             >
               {/* Column Header */}
               <div className={`${col.bgHeader} px-4 py-3 text-white font-bold flex justify-between items-center`}>
                 <span>{col.title}</span>
-                <span className="bg-black/30 text-xs px-2.5 py-1 rounded-full">
+                <span className="bg-black/20 text-xs px-2.5 py-1 rounded-full text-white font-semibold">
                   {colOrders.length}
                 </span>
               </div>
 
-              {/* Column Content */}
+              {/* Column Content Area */}
               <div className="p-3 flex-1 overflow-y-auto space-y-3">
                 {colOrders.length === 0 ? (
-                  <div className="text-center text-slate-600 py-8 text-sm italic">
+                  <div className="text-center text-gray-400 py-8 text-sm italic font-medium">
                     No orders
                   </div>
                 ) : (
                   colOrders.map((order) => (
                     <div
                       key={order.id}
-                      className={`bg-slate-800 border ${col.borderCard} rounded-lg p-4 flex flex-col justify-between shadow-md`}
+                      className={`bg-white border ${col.borderCard} rounded-lg p-4 flex flex-col justify-between shadow-md text-black`}
                     >
                       <div>
                         {/* Order Header */}
-                        <div className="flex justify-between items-start mb-2 border-b border-slate-700/60 pb-2">
-                          <span className="font-bold text-white text-base">
+                        <div className="flex justify-between items-start mb-2 border-b border-gray-100 pb-2">
+                          <span className="font-bold text-black text-base">
                             Order #{order.id}
                           </span>
-                          <span className="text-xs text-slate-400">
+                          <span className="text-xs text-gray-500 font-medium">
                             {new Date(order.created_at).toLocaleTimeString([], {
                               hour: '2-digit',
                               minute: '2-digit',
@@ -244,13 +249,13 @@ export default function KDSPage() {
 
                         {/* Customer Name */}
                         {order.customer_name && (
-                          <p className="text-xs font-semibold text-amber-300 mb-2">
-                            Customer: {order.customer_name}
+                          <p className="text-xs font-bold text-gray-700 mb-2 uppercase tracking-wide">
+                            Customer: <span className="text-black">{order.customer_name}</span>
                           </p>
                         )}
 
-                        {/* Items */}
-                        <div className="text-slate-200 text-sm mb-4 space-y-1">
+                        {/* Items List */}
+                        <div className="text-gray-900 text-sm mb-4 space-y-1 font-medium">
                           {Array.isArray(order.items) ? (
                             order.items.map((item, idx) => (
                               <p key={idx}>• {item}</p>
