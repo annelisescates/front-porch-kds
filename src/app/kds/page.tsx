@@ -9,7 +9,7 @@ const getSupabaseClient = () => {
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
   if (!supabaseUrl || !supabaseAnonKey) {
-    console.warn('Supabase env vars missing in current context.');
+    console.warn('⚠️ Supabase env vars missing in current context.');
     return null;
   }
   return createClient(supabaseUrl, supabaseAnonKey);
@@ -29,14 +29,18 @@ export default function KDSPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    console.log('🚀 KDS Page Mounted. Initializing Supabase...');
     const supabase = getSupabaseClient();
+
     if (!supabase) {
+      console.error('❌ Supabase client failed to initialize. Check environment variables!');
       setLoading(false);
       return;
     }
 
     // 1. Fetch initial active orders
     const fetchOrders = async () => {
+      console.log('📡 Fetching initial active orders...');
       const { data, error } = await supabase
         .from('orders')
         .select('*')
@@ -44,8 +48,9 @@ export default function KDSPage() {
         .order('created_at', { ascending: true });
 
       if (error) {
-        console.error('Error fetching orders:', error);
+        console.error('❌ Error fetching initial orders:', error);
       } else {
+        console.log('✅ Initial orders loaded:', data);
         setOrders(data || []);
       }
       setLoading(false);
@@ -53,7 +58,8 @@ export default function KDSPage() {
 
     fetchOrders();
 
-    // 2. Realtime subscription for INSERTs and UPDATEs
+    // 2. Realtime subscription for INSERTs, UPDATEs, and DELETEs
+    console.log('⚡ Subscribing to Supabase Realtime channel...');
     const channel = supabase
       .channel('kds_realtime_orders')
       .on(
@@ -64,6 +70,8 @@ export default function KDSPage() {
           table: 'orders',
         },
         (payload) => {
+          console.log('🔔 Realtime event payload received:', payload);
+
           if (payload.eventType === 'INSERT') {
             const newOrder = payload.new as Order;
             if (newOrder.status !== 'completed') {
@@ -81,12 +89,21 @@ export default function KDSPage() {
                 prev.map((o) => (o.id === updatedOrder.id ? updatedOrder : o))
               );
             }
+          } else if (payload.eventType === 'DELETE') {
+            const deletedId = payload.old.id;
+            setOrders((prev) => prev.filter((o) => o.id !== deletedId));
           }
         }
       )
-      .subscribe();
+      .subscribe((status, err) => {
+        console.log('📡 Realtime Connection Status:', status);
+        if (err) {
+          console.error('❌ Realtime Subscription Error:', err);
+        }
+      });
 
     return () => {
+      console.log('🧹 Cleaning up Realtime channel subscription...');
       supabase.removeChannel(channel);
     };
   }, []);
@@ -138,7 +155,7 @@ export default function KDSPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-white text-black flex items-center justify-center text-xl font-medium">
+      <div className="min-h-screen bg-[#FFC5D3] text-black flex items-center justify-center text-xl font-medium">
         Loading Order Display System...
       </div>
     );
@@ -148,7 +165,7 @@ export default function KDSPage() {
     {
       key: 'waiting',
       title: 'Waiting',
-      bgHeader: 'bg-red-500',
+      bgHeader: 'bg-red-600',
       bgColumn: 'bg-red-500/10',
       borderColumn: 'border-red-200',
       borderCard: 'border-red-300',
@@ -159,7 +176,7 @@ export default function KDSPage() {
     {
       key: 'pressing',
       title: 'Pressing',
-      bgHeader: 'bg-amber-500',
+      bgHeader: 'bg-amber-600',
       bgColumn: 'bg-amber-500/10',
       borderColumn: 'border-amber-200',
       borderCard: 'border-amber-300',
@@ -170,7 +187,7 @@ export default function KDSPage() {
     {
       key: 'packing',
       title: 'Packing',
-      bgHeader: 'bg-yellow-300',
+      bgHeader: 'bg-yellow-600',
       bgColumn: 'bg-yellow-500/10',
       borderColumn: 'border-yellow-200',
       borderCard: 'border-yellow-300',
@@ -181,24 +198,24 @@ export default function KDSPage() {
     {
       key: 'ready',
       title: 'Ready for Pickup',
-      bgHeader: 'bg-emerald-400',
+      bgHeader: 'bg-emerald-600',
       bgColumn: 'bg-emerald-500/10',
       borderColumn: 'border-emerald-200',
       borderCard: 'border-emerald-300',
       btnBg: 'bg-emerald-600 hover:bg-emerald-700',
-      btnText: 'DELIVERED ✓',
+      btnText: 'COMPLETE ✓',
       nextStatus: 'completed',
     },
   ];
 
   return (
-    <div className="min-h-screen bg-[#FFC5D3]/50 text-black p-4 flex flex-col">
+    <div className="min-h-screen bg-[#FFC5D3] text-black p-4 flex flex-col">
       {/* Top Header */}
-      <div className="flex justify-between items-center mb-4 pb-3 border-b border-gray-200">
+      <div className="flex justify-between items-center mb-4 pb-3 border-b border-black/10">
         <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-black">
           Front Porch Faith Apparel Co.
         </h1>
-        <div className="bg-gray-100 px-4 py-2 rounded-lg border border-gray-200 text-sm text-gray-800 font-medium">
+        <div className="bg-white/80 backdrop-blur px-4 py-2 rounded-lg border border-black/10 text-sm text-gray-800 font-medium shadow-sm">
           Active Orders: <span className="font-bold text-emerald-600">{orders.length}</span>
         </div>
       </div>
@@ -224,7 +241,7 @@ export default function KDSPage() {
               {/* Column Content Area */}
               <div className="p-3 flex-1 overflow-y-auto space-y-3">
                 {colOrders.length === 0 ? (
-                  <div className="text-center text-gray-400 py-8 text-sm italic font-medium">
+                  <div className="text-center text-gray-500 py-8 text-sm italic font-medium">
                     No orders
                   </div>
                 ) : (
