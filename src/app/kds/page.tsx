@@ -1,231 +1,155 @@
-"use client";
+'use client';
 
-import { useEffect, useState } from "react";
-import { supabase } from "../../lib/supabase";
+import { useEffect, useState } from 'react';
+import { createClient } from '@supabase/supabase-js';
 
-type OrderItem = {
-  id: string;
-  design: string;
-  garment: string;
-  size: string;
-  quantity: number;
-};
+// Initialize Supabase Client
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-type Order = {
-  id: string;
-  order_number: string;
-  customer_name: string;
-  phone: string;
-  notes: string;
-  status: "WAITING" | "PRESSING" | "READY" | "PICKED_UP";
+// Type definition for an Order (adjust fields if your database column names differ)
+interface Order {
+  id: string | number;
   created_at: string;
-  order_items: OrderItem[];
-};
+  customer_name?: string;
+  items?: string | string[];
+  total_price?: number;
+  status: string;
+}
 
 export default function KDSPage() {
   const [orders, setOrders] = useState<Order[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  // Fetch initial orders & listen for live changes from Supabase
+  // 1. Fetch initial active orders and subscribe to Realtime updates
   useEffect(() => {
+    const fetchOrders = async () => {
+      const { data, error } = await supabase
+        .from('orders')
+        .select('*')
+        .neq('status', 'completed') // Hide completed orders
+        .order('created_at', { ascending: true }); // Oldest orders first
+
+      if (error) {
+        console.error('Error fetching orders:', error);
+      } else {
+        setOrders(data || []);
+      }
+      setLoading(false);
+    };
+
     fetchOrders();
 
+    // Set up Supabase Realtime Subscription
     const channel = supabase
-      .channel("realtime-kds")
+      .channel('kds_realtime_orders')
       .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "orders" },
-        () => {
-          fetchOrders();
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'orders' },
+        (payload) => {
+          const newOrder = payload.new as Order;
+          // Add new order to screen if it isn't completed
+          if (newOrder.status !== 'completed') {
+            setOrders((prev) => [...prev, newOrder]);
+          }
         }
       )
       .subscribe();
 
+    // Cleanup subscription when leaving the page
     return () => {
       supabase.removeChannel(channel);
     };
   }, []);
 
-  async function fetchOrders() {
-    const { data, error } = await supabase
-      .from("orders")
-      .select("*, order_items(*)")
-      .order("created_at", { ascending: true });
+  // 2. Function to mark order as completed in Supabase and clear from screen
+  const clearOrder = async (orderId: string | number) => {
+    // Optimistically update local UI immediately so the UI responds fast
+    setOrders((prev) => prev.filter((order) => order.id !== orderId));
 
-    if (!error && data) {
-      setOrders(data as Order[]);
-    }
-  }
-
-  async function updateStatus(
-    orderId: string,
-    newStatus: Order["status"]
-  ) {
     const { error } = await supabase
-      .from("orders")
-      .update({ status: newStatus })
-      .eq("id", orderId);
+      .from('orders')
+      .update({ status: 'completed' })
+      .eq('id', orderId);
 
     if (error) {
-      alert(`Failed to update status: ${error.message}`);
-    } else {
-      fetchOrders();
+      console.error('Failed to update status in Supabase:', error);
+      alert('Could not update order status on server. Please refresh.');
     }
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-slate-900 text-white flex items-center justify-center text-xl">
+        Loading KDS...
+      </div>
+    );
   }
 
-  const columns: {
-    label: string;
-    status: Order["status"];
-    bgTint: string;
-    borderColor: string;
-    badgeBg: string;
-    badgeText: string;
-  }[] = [
-    {
-      label: "Waiting",
-      status: "WAITING",
-      bgTint: "bg-red-500/10",
-      borderColor: "border-red-400",
-      badgeBg: "bg-red-100",
-      badgeText: "text-red-700",
-    },
-    {
-      label: "Pressing",
-      status: "PRESSING",
-      bgTint: "bg-amber-500/10",
-      borderColor: "border-amber-400",
-      badgeBg: "bg-amber-100",
-      badgeText: "text-amber-800",
-    },
-    {
-      label: "Ready for Pickup",
-      status: "READY",
-      bgTint: "bg-emerald-500/10",
-      borderColor: "border-emerald-400",
-      badgeBg: "bg-emerald-100",
-      badgeText: "text-emerald-800",
-    },
-    {
-      label: "Picked Up",
-      status: "PICKED_UP",
-      bgTint: "bg-gray-500/10",
-      borderColor: "border-gray-300",
-      badgeBg: "bg-gray-200",
-      badgeText: "text-gray-700",
-    },
-  ];
-
   return (
-    <main className="min-h-screen bg-gray-100 p-6 text-gray-900">
-      <header className="mb-6 flex items-center justify-between border-b border-gray-200 pb-4">
-        <div>
-          <h1 className="text-3xl font-bold">Front Porch Faith Apparel Co.</h1>
-          <p className="text-gray-600">Pop-Up Order Display System</p>
+    <div className="min-h-screen bg-slate-900 text-slate-100 p-6">
+      {/* Header */}
+      <div className="flex justify-between items-center mb-6 border-b border-slate-700 pb-4">
+        <h1 className="text-3xl font-bold tracking-wide text-white">Kitchen Display System</h1>
+        <div className="bg-slate-800 px-4 py-2 rounded-lg border border-slate-700 text-sm">
+          Active Orders: <span className="font-bold text-green-400">{orders.length}</span>
         </div>
-        <span className="rounded-full bg-green-100 px-4 py-1.5 text-xs font-bold text-green-800">
-          ● REALTIME CONNECTED
-        </span>
-      </header>
+      </div>
 
-      <div className="grid grid-cols-1 gap-5 md:grid-cols-4">
-        {columns.map((col) => {
-          const colOrders = orders.filter((o) => o.status === col.status);
-
-          return (
+      {/* Empty State */}
+      {orders.length === 0 ? (
+        <div className="flex flex-col items-center justify-center h-64 text-slate-500">
+          <p className="text-2xl font-medium">All clear! No pending orders.</p>
+        </div>
+      ) : (
+        /* Orders Grid */
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          {orders.map((order) => (
             <div
-              key={col.status}
-              className={`flex flex-col rounded-2xl border ${col.borderColor} ${col.bgTint} p-4 shadow-sm`}
+              key={order.id}
+              className="bg-slate-800 border border-slate-700 rounded-xl p-5 flex flex-col justify-between shadow-lg"
             >
-              {/* Column Header */}
-              <div className="mb-4 flex items-center justify-between border-b border-gray-200/60 pb-3">
-                <h2 className="text-lg font-bold tracking-tight text-gray-900">
-                  {col.label}
-                </h2>
-                <span
-                  className={`rounded-full px-3 py-0.5 text-xs font-bold ${col.badgeBg} ${col.badgeText}`}
-                >
-                  {colOrders.length}
-                </span>
-              </div>
+              <div>
+                {/* Order Top Bar */}
+                <div className="flex justify-between items-start mb-3 border-b border-slate-700 pb-2">
+                  <span className="text-lg font-bold text-white">Order #{order.id}</span>
+                  <span className="text-xs text-slate-400">
+                    {new Date(order.created_at).toLocaleTimeString([], {
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })}
+                  </span>
+                </div>
 
-              {/* Order Cards Container */}
-              <div className="flex-1 space-y-4 overflow-y-auto">
-                {colOrders.map((order) => (
-                  <div
-                    key={order.id}
-                    className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm transition-all hover:shadow-md"
-                  >
-                    <div className="flex items-center justify-between border-b border-gray-100 pb-3">
-                      <span className="text-2xl font-black text-black">
-                        #{order.order_number}
-                      </span>
-                      <span className="text-sm font-semibold text-gray-700">
-                        {order.customer_name}
-                      </span>
-                    </div>
-
-                    {/* Order Items */}
-                    <div className="my-3 space-y-2">
-                      {order.order_items?.map((item) => (
-                        <div
-                          key={item.id}
-                          className="rounded-lg bg-gray-50 p-3 text-sm border border-gray-100"
-                        >
-                          <p className="font-bold text-gray-900">
-                            Design #{item.design} — {item.garment}
-                          </p>
-                          <p className="mt-1 text-gray-600">
-                            Size: <span className="font-bold text-black">{item.size}</span> | Qty: <span className="font-bold text-black">{item.quantity}</span>
-                          </p>
-                        </div>
-                      ))}
-                    </div>
-
-                    {order.notes && (
-                      <p className="mb-3 rounded-lg bg-amber-50 p-2.5 text-xs text-amber-900 border border-amber-200">
-                        <strong>Note:</strong> {order.notes}
-                      </p>
-                    )}
-
-                    {/* Stage Buttons */}
-                    <div className="mt-4">
-                      {col.status === "WAITING" && (
-                        <button
-                          onClick={() => updateStatus(order.id, "PRESSING")}
-                          className="w-full rounded-xl bg-black p-3 font-bold text-white transition hover:bg-gray-800"
-                        >
-                          START PRESSING ➔
-                        </button>
-                      )}
-                      {col.status === "PRESSING" && (
-                        <button
-                          onClick={() => updateStatus(order.id, "READY")}
-                          className="w-full rounded-xl bg-black p-3 font-bold text-white transition hover:bg-gray-800"
-                        >
-                          MARK READY ➔
-                        </button>
-                      )}
-                      {col.status === "READY" && (
-                        <button
-                          onClick={() => updateStatus(order.id, "PICKED_UP")}
-                          className="w-full rounded-xl bg-gray-200 p-3 font-bold text-gray-800 transition hover:bg-gray-300"
-                        >
-                          MARK PICKED UP ✓
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                ))}
-
-                {colOrders.length === 0 && (
-                  <p className="py-10 text-center text-sm italic text-gray-400">
-                    No orders
+                {/* Customer Name */}
+                {order.customer_name && (
+                  <p className="text-sm font-semibold text-amber-400 mb-3">
+                    Customer: {order.customer_name}
                   </p>
                 )}
+
+                {/* Order Items */}
+                <div className="text-slate-200 text-base mb-4 space-y-1">
+                  {Array.isArray(order.items) ? (
+                    order.items.map((item, idx) => <p key={idx}>• {item}</p>)
+                  ) : (
+                    <p>• {order.items || 'Standard Order'}</p>
+                  )}
+                </div>
               </div>
+
+              {/* Complete / Bump Button */}
+              <button
+                onClick={() => clearOrder(order.id)}
+                className="w-full mt-4 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white font-bold py-3 px-4 rounded-lg transition-colors duration-150 shadow-md"
+              >
+                Complete Order ✓
+              </button>
             </div>
-          );
-        })}
-      </div>
-    </main>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
