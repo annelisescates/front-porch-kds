@@ -81,8 +81,9 @@ export default function KDSPage() {
           schema: 'public',
           table: 'orders',
         },
-        (payload) => {
+        async (payload) => {
           console.log('🔔 Realtime event payload received:', payload);
+          console.log("PAYLOAD NEW:", payload.new);
 
           if (payload.eventType === 'INSERT') {
   const newOrderId = payload.new.id;
@@ -95,6 +96,8 @@ export default function KDSPage() {
     `)
     .eq('id', newOrderId)
     .single();
+
+    console.log("FULL ORDER FROM SUPABASE:", fullOrder);
 
   if (error) {
     console.error("Could not fetch full new order:", error);
