@@ -153,7 +153,7 @@ export default function KDSPage() {
       borderColumn: 'border-red-200',
       borderCard: 'border-red-300',
       btnBg: 'bg-red-600 hover:bg-red-700',
-      btnText: 'Move to Pressing →',
+      btnText: 'BEGIN ORDER →',
       nextStatus: 'pressing',
     },
     {
@@ -164,7 +164,7 @@ export default function KDSPage() {
       borderColumn: 'border-amber-200',
       borderCard: 'border-amber-300',
       btnBg: 'bg-amber-600 hover:bg-amber-700',
-      btnText: 'Move to Packing →',
+      btnText: 'PACK IT UP! →',
       nextStatus: 'packing',
     },
     {
@@ -175,7 +175,7 @@ export default function KDSPage() {
       borderColumn: 'border-yellow-200',
       borderCard: 'border-yellow-300',
       btnBg: 'bg-yellow-600 hover:bg-yellow-700',
-      btnText: 'Mark Ready →',
+      btnText: 'READY FOR PICKUP→',
       nextStatus: 'ready',
     },
     {
@@ -186,7 +186,7 @@ export default function KDSPage() {
       borderColumn: 'border-emerald-200',
       borderCard: 'border-emerald-300',
       btnBg: 'bg-emerald-600 hover:bg-emerald-700',
-      btnText: 'Bump / Complete ✓',
+      btnText: 'COMPLETE ✓',
       nextStatus: 'completed',
     },
   ];
