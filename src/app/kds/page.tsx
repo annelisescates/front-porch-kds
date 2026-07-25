@@ -15,13 +15,22 @@ const getSupabaseClient = () => {
   return createClient(supabaseUrl, supabaseAnonKey);
 };
 
+interface OrderItem {
+  id: string | number;
+  design: string;
+  garment: string;
+  size: string;
+  quantity: number;
+  price: number;
+}
+
 interface Order {
   id: string | number;
+  order_number: string;
   created_at: string;
   customer_name?: string;
-  items?: string | string[];
-  total_price?: number;
-  status: string; // 'waiting' | 'pressing' | 'packing' | 'ready' | 'completed'
+  status: string;
+  order_items: OrderItem[];
 }
 
 export default function KDSPage() {
@@ -41,11 +50,14 @@ export default function KDSPage() {
     // 1. Fetch initial active orders
     const fetchOrders = async () => {
       console.log('📡 Fetching initial active orders...');
-      const { data, error } = await supabase
-        .from('orders')
-        .select('*')
-        .neq('status', 'completed')
-        .order('created_at', { ascending: true });
+     const { data, error } = await supabase
+  .from('orders')
+  .select(`
+    *,
+    order_items (*)
+  `)
+  .neq('status', 'completed')
+  .order('created_at', { ascending: true });
 
       if (error) {
         console.error('❌ Error fetching initial orders:', error);
@@ -253,9 +265,18 @@ export default function KDSPage() {
                       <div>
                         {/* Order Header */}
                         <div className="flex justify-between items-start mb-2 border-b border-gray-100 pb-2">
-                          <span className="font-bold text-black text-base">
-                            Order #{order.id}
-                          </span>
+                         <div>
+  <span className="font-bold text-black text-base">
+    Order #{order.order_number}
+  </span>
+
+  <p className="text-sm font-bold text-gray-700">
+    {order.order_items?.reduce(
+      (sum, item) => sum + item.quantity,
+      0
+    )} ITEMS
+  </p>
+</div>
                           <span className="text-xs text-gray-500 font-medium">
                             {new Date(order.created_at).toLocaleTimeString([], {
                               hour: '2-digit',
@@ -272,15 +293,32 @@ export default function KDSPage() {
                         )}
 
                         {/* Items List */}
-                        <div className="text-gray-900 text-sm mb-4 space-y-1 font-medium">
-                          {Array.isArray(order.items) ? (
-                            order.items.map((item, idx) => (
-                              <p key={idx}>• {item}</p>
-                            ))
-                          ) : (
-                            <p>• {order.items || 'Standard Order'}</p>
-                          )}
-                        </div>
+                       <div className="text-gray-900 text-sm mb-4 space-y-3 font-medium">
+
+  {order.order_items?.map((item) => (
+    <div
+      key={item.id}
+      className="border-b pb-2"
+    >
+      <p className="font-bold">
+        Design #{item.design}
+      </p>
+
+      <p>
+        {item.garment}
+      </p>
+
+      <p>
+        Size: {item.size}
+      </p>
+
+      <p>
+        Qty: {item.quantity}
+      </p>
+    </div>
+  ))}
+
+</div>
                       </div>
 
                       {/* Action Button */}
